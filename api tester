@@ -1,0 +1,42 @@
+import requests
+import telebot
+
+# Замените <YOUR_BOT_TOKEN> на токен вашего бота, полученного от BotFather
+bot_token = ""
+# Замените <YOUR_API_ENDPOINT> на конечную точку API вашего сайта
+api_endpoint = "<YOUR_API_ENDPOINT>"
+
+# Создаем объект бота
+bot = telebot.TeleBot(bot_token)
+
+# Функция для проверки доступности API
+def check_api_availability(api_url):
+    try:
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            return "API доступно."
+        else:
+            return "API недоступно."
+    except requests.exceptions.RequestException:
+        return "Ошибка при подключении к API."
+
+# Обработка команды /start
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.chat.id, "Привет! Отправьте мне ссылку на API для проверки доступности.")
+
+# Обработка входящих сообщений
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    chat_id = message.chat.id
+    api_url = message.text.strip()
+
+    # Проверяем, является ли сообщение ссылкой
+    if api_url.startswith("http://") or api_url.startswith("https://"):
+        availability = check_api_availability(api_url)
+        bot.send_message(chat_id, availability)
+    else:
+        bot.send_message(chat_id, "Пожалуйста, отправьте ссылку на API для проверки.")
+
+# Запускаем бота
+bot.polling()
