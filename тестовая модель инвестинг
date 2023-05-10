@@ -1,46 +1,40 @@
+import torch
 import urllib.request
 from bs4 import BeautifulSoup
-
+import urllib.request
+from bs4 import BeautifulSoup
 from transformers import AutoModelForSequenceClassification
 from transformers import TFAutoModelForSequenceClassification
 from transformers import AutoTokenizer, AutoConfig
 import numpy as np
 from scipy.special import softmax
-# Preprocess text (username and link placeholders)
-def preprocess(text):
-    new_text = []
-    for t in text.split(" "):
-        t = '@user' if t.startswith('@') and len(t) > 1 else t
-        t = 'http' if t.startswith('http') else t
-        new_text.append(t)
-    return " ".join(new_text)
+from bs4 import BeautifulSoup
+import urllib.request
+
+from transformers import logging
+logging.set_verbosity_error()
+
 MODEL = f"cardiffnlp/twitter-roberta-base-sentiment-latest"
 tokenizer = AutoTokenizer.from_pretrained(MODEL)
 config = AutoConfig.from_pretrained(MODEL)
+url = 'https://dzen.ru/news?issue_tld=ru&utm_referer=yandex.ru'#"https://www.zerohedge.com/commodities"
+url_set = set()#создаем список,куда будут добавлены ссылки
+test_list = []
 
-model = AutoModelForSequenceClassification.from_pretrained(MODEL)
-#model.save_pretrained(MODEL)
-text = "Covid cases are increasing fast!"
-text = preprocess(text)
-encoded_input = tokenizer(text, return_tensors='pt')
-output = model(**encoded_input)
-scores = output[0][0].detach().numpy()
-scores = softmax(scores)
-# # TF
-# model = TFAutoModelForSequenceClassification.from_pretrained(MODEL)
-# model.save_pretrained(MODEL)
-# text = "Covid cases are increasing fast!"
-# encoded_input = tokenizer(text, return_tensors='tf')
-# output = model(encoded_input)
-# scores = output[0][0].numpy()
-# scores = softmax(scores)
-# Print labels and scores
-ranking = np.argsort(scores)
-ranking = ranking[::-1]
-for i in range(scores.shape[0]):
-    l = config.id2label[ranking[i]]
-    s = scores[ranking[i]]
-    print(f"{i+1}) {l} {np.round(float(s), 4)}")
+def model_proccesing(text,MODEL):
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL)
+    encoded_input = tokenizer(text, return_tensors='pt')
+    output = model(**encoded_input)
+    scores = output[0][0].detach().numpy()
+    scores = softmax(scores)
+
+    ranking = np.argsort(scores)
+    ranking = ranking[::-1]
+    for i in range(scores.shape[0]):
+        l = config.id2label[ranking[i]]
+        s = scores[ranking[i]]
+        print(f"{i+1}) {l} {np.round(float(s), 4)}")
+
 
 def fetch_html(url):
     try:
@@ -50,11 +44,8 @@ def fetch_html(url):
     except urllib.error.URLError as e:
         print(f"Ошибка при выполнении запроса: {e.reason}")
         return None
-
 # Получение HTML-кода
-url = "https://www.zerohedge.com/commodities"
 html_content = fetch_html(url)
-lst = []
 if html_content:
     # Создание объекта BeautifulSoup
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -62,18 +53,16 @@ if html_content:
     links = soup.find_all('a')
     for link in links:
         #print(link.get('href'))
+        test_list.append(link.get('href'))
         if 'commodities' in str(link.get('href')) and '#com' not in str(link.get('href')):
-          lst.append('https://www.zerohedge.com' + str(link.get('href')))
-    print(len(lst))
+          url_set.add('https://www.zerohedge.com' + str(link.get('href')))
+    print(len(url_set))
     # Пример: Извлечение определенных элементов по классу или id
     title_element = soup.find('h1', class_='post-title')
     #if title_element:
         #print(title_element.text)
-from bs4 import BeautifulSoup
-import urllib.request
-for element in lst:
- try:
- #if element == 'https://www.zerohedge.com/commodities/californias-cannabis-market-crashes-northern-counties-brace-impact':
+
+for element in url_set:
     # Загрузка HTML страницы
     url_each_lst = element
     response = urllib.request.urlopen(url_each_lst)
@@ -97,7 +86,7 @@ for element in lst:
     # model.save_pretrained(MODEL)
     for sum_par in text_element:
        text = sum_par
-    text = preprocess(text)
+    text = element
     encoded_input = tokenizer(text, return_tensors='pt')
     output = model(**encoded_input)
     scores = output[0][0].detach().numpy()
@@ -110,7 +99,5 @@ for element in lst:
         s = scores[ranking[i]]
 
         print(f"{i + 1}) {l} {np.round(float(s), 4)}")
- except:
-     print('ссылка не та')
 print('Программа завершена')
 
